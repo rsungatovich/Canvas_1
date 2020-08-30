@@ -9,20 +9,26 @@ canvas.height = innerHeight;
 
 class Drop {
   constructor ({ ctx, canvas, mouseOs }) {
+    this.ctx = ctx;
+    this.canvas = canvas;
+    this.mouseOs = mouseOs;
+    this.trendX = null;
+    this.trendY = null;
+    this.speedSens = null;
+    this.speedSensX = null;
+    this.speedSensY = null;
+    this.difference = null;
+    this.differenceX = null;
+    this.differenceY = null;
+    this.isSensitive = false;
+    this.speedX = Math.random() - 0.5;
+    this.speedY = Math.random() - 0.5;
+    this.sensitive = Math.random() * 500;
     this.x = Math.random() * canvas.width;
     this.y = Math.random() * canvas.height;
     this.r = Math.ceil(Math.random() * 10);
     this.transparent = Math.ceil(Math.random() * 10) / 10;
     this.color = `rgb(255, 255, 255, ${ this.transparent })`
-    this.ctx = ctx;
-    this.canvas = canvas;
-    this.mouseOs = mouseOs;
-    this.speed = Math.random() - 0.5;
-    this.speedSens = Math.random() * 0.5;
-    this.speedSensX = this.speedSens;
-    this.speedSensY = this.speedSens;
-    this.sensitivityY = 300;
-    this.sensitivityX = 300;
   }
 
   _create = () => {
@@ -43,79 +49,112 @@ class Drop {
     this.ctx.fill();
   }
 
-  _initTransform = () => {
+  _setDifference = () => {
+    // вычисляем расстояние между курсором и элементом
+    let defX = this.mouseOs.x - this.x;
+    let defY = this.mouseOs.y - this.y;
 
-    if ((this.mouseOs.x - this.x < (this.r * 10) 
-      && this.mouseOs.x - this.x > (-this.r * 10))
-      && (this.mouseOs.y - this.y < (this.r * 10) 
-      && this.mouseOs.y - this.y > (-this.r * 10))) {
+    // преобразовываем расстояние в натуральное число
+    this.differenceX = defX < 0 ? -defX : defX;
+    this.differenceY = defY < 0 ? -defY : defY;
 
-      this.r === 0 ? this.r : this.r -= 0.5;
-      this.color = `rgb(255, 255, 255, ${this.transparent -= 0.05})`
+    // находим средний показатель расстояния
+    this.difference = this.differenceX + this.differenceY / 2;
 
-    }
   }
 
-  _initCharacter = () => {
-    if ((this.mouseOs.x - this.x < this.sensitivityX 
-    && this.mouseOs.x - this.x > -this.sensitivityX)
-    && (this.mouseOs.y - this.y < this.sensitivityY 
-    && this.mouseOs.y - this.y > -this.sensitivityY)) {
+  _setSensitive = () => {
 
-      this.trandX = this.mouseOs.x;
-      this.trandY = this.mouseOs.y;
+    // проверяем попадает ли элемент в зону чувствительности
+    if (this.difference < this.sensitive) {
+        this.isSensitive = true;
+      } else {
+        this.isSensitive = false;
+      }
+  }
 
-      this.distanceX = (this.mouseOs.x - this.x) < 0 ? 
-      -(this.mouseOs.x - this.x) : this.mouseOs.x - this.x;
+  _setDirection = () => {
 
-      this.distanceY = (this.mouseOs.y - this.y) < 0 ? 
-      -(this.mouseOs.y - this.y) : this.mouseOs.y - this.y;
-
-      if (((this.distanceX + this.distanceY) / 2) > 10) {
-        this.speedSens = (50 / ((this.distanceX + this.distanceY) / 2));
-
-        this.speedSensX = this.distanceX < this.distanceY 
-        ? (this.distanceX / this.distanceY * this.speedSens) 
-        : this.speedSens;
-  
-        this.speedSensY = this.distanceY < this.distanceX 
-        ? (this.distanceY / this.distanceX * this.speedSens) 
-        : this.speedSens;
-      } 
+    // задаем тренд направления элемента
+    if (this.isSensitive) {
+      
+      this.trendX = this.mouseOs.x;
+      this.trendY = this.mouseOs.y;
 
     } else {
-      this.trandX = null;
-      this.trandY = null;
+
+      this.trendX = null;
+      this.trendY = null;
+
     }
   }
 
-  _initAction = () => {
+  _transformElement = () => {
+
+    // трансформируем элемент при приближении
+    if (this.difference < this.r * 10) {
+      this.r === 0 ? this.r : this.r -= 0.5;
+      this.color = `rgb(255, 255, 255, ${this.transparent -= 0.05})`
+    }
+  }
+
+  _reactionElement = () => {
+    if (this.isSensitive) {
+      // увеличимаем скорость по мере приближения элемента к курсору
+      this.speedSens = 70 / this.difference;
+
+      // если расстояни от X меньше чем от Y, уменьшаем скорость для X
+      this.speedSensX = this.differenceX < this.differenceY 
+      ? (this.differenceX / this.differenceY * this.speedSens) 
+      : this.speedSens;
+
+      // если расстояни от Y меньше чем от X, уменьшаем скорость для Y
+      this.speedSensY = this.differenceY < this.differenceX 
+      ? (this.differenceY / this.differenceX * this.speedSens) 
+      : this.speedSens;
+    }
+  }
+
+  _setActions = () => {
+
+    this._reactionElement();
+    this._transformElement();
+      
+  }
+
+  _getMoved = () => {
+    // изменение направления при достижении границ Y
     if (this.y > this.canvas.height - this.r || this.y < 0 + this.r) {
-      this.speed = -this.speed;
+      this.speedY = -this.speedY;
     }
-
+    
+    // изменение направления при достижении границ X
     if (this.x > this.canvas.width - this.r || this.x < 0 + this.r) {
-      this.speed = -this.speed;
+      this.speedX = -this.speedX;
     }
 
-    if (this.trandX && this.trandY) {
-      this.trandX < this.x ? 
+    // направление элемента к курсору
+    if (this.trendX && this.trendY) {
+      this.trendX < this.x ? 
       this.x -= this.speedSensX : this.x += this.speedSensX;
-      this.trandY < this.y ? 
+      this.trendY < this.y ? 
       this.y -= this.speedSensY : this.y += this.speedSensY;
     }
 
-    if (!this.trandX && !this.trandY) {
-      this.x += this.speed;
-      this.y += this.speed;
+    // направление элемента по умолчанию
+    if (!this.trendX && !this.trendY) {
+      this.x += this.speedX;
+      this.y += this.speedY;
     }
   }
 
   run = () => {
-    this._initTransform();
-    this._initCharacter();
-    this._initAction();
+    this._setDifference();
+    this._setSensitive();
+    this._setDirection();
+    this._setActions();
 
+    this._getMoved();
     this._create();
   }
 }
